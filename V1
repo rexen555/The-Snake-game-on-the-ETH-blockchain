@@ -1,0 +1,71 @@
+pragma solidity ^0.8.0;
+
+import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+
+contract SnakeGame is ERC20 {
+    uint public boardSize;
+    uint public snakeHead;
+    uint public snakeTail;
+    uint public food;
+    uint8[] public board;
+    uint public score;
+
+    event Move(uint8[] board);
+
+    constructor(uint _boardSize) ERC20("SnakeCoin", "SNAKE") {
+        require(_boardSize > 2, "Board size must be greater than 2");
+        boardSize = _boardSize;
+        board = new uint8[](boardSize * boardSize);
+        snakeHead = boardSize / 2;
+        snakeTail = boardSize / 2;
+        board[snakeHead] = 1;
+        food = generateFood();
+    }
+
+    function move(uint8 _direction) public {
+        require(_direction >= 0 && _direction <= 3, "Invalid direction");
+        uint8 head = uint8(snakeHead);
+        uint8 tail = uint8(snakeTail);
+
+        // Update snake head based on direction
+        if (_direction == 0) head -= boardSize; // Up
+        else if (_direction == 1) head += boardSize; // Down
+        else if (_direction == 2) head--; // Left
+        else head++; // Right
+
+        // Check for game over
+        if (head >= boardSize * boardSize || board[head] == 1 || head < 0) {
+            score = 0;
+            board = new uint8[](boardSize * boardSize);
+            snakeHead = boardSize / 2;
+            snakeTail = boardSize / 2;
+            board[snakeHead] = 1;
+            food = generateFood();
+            return;
+        }
+
+        // Update board with new head position
+        board[head] = 1;
+        snakeHead = head;
+
+        // Check for food
+        if (head == food) {
+            score++;
+            _mint(msg.sender, 1 ether);
+            food = generateFood();
+        } else {
+            board[tail] = 0;
+            snakeTail++;
+        }
+
+        emit Move(board);
+    }
+
+    function generateFood() internal view returns (uint) {
+        uint foodIndex = uint(keccak256(abi.encodePacked(block.timestamp, block.difficulty))) % (boardSize * boardSize);
+        while (board[foodIndex] == 1) {
+            foodIndex = uint(keccak256(abi.encodePacked(foodIndex, block.timestamp, block.difficulty))) % (boardSize * boardSize);
+        }
+        return foodIndex;
+    }
+}
